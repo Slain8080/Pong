@@ -1,0 +1,20 @@
+# Normalize line endings so Windows and macOS/Linux machines don't show every
+# file as "changed" just because of invisible newline differences. Text files
+# are stored with LF in the repo and checked out however your OS prefers.
+* text=auto
+
+# Always treat these as text regardless of heuristics.
+*.cpp   text
+*.h     text
+*.hpp   text
+*.txt   text
+*.md    text
+*.cmake text
+
+# Never touch binary assets - "fixing" newlines inside a PNG corrupts it.
+*.png  binary
+*.jpg  binary
+*.wav  binary
+*.ogg  binary
+*.mp3  binary
+*.ttf  binary
