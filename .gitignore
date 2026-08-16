@@ -30,6 +30,10 @@ cmake-build-*/
 *.o
 *.a
 
+# Personal Claude Code context. Auto-loaded from the project root every session,
+# but it's notes-to-my-assistant, not project source - keep it off the repo.
+CLAUDE.md
+
 # OS cruft
 Thumbs.db
 desktop.ini
