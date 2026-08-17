@@ -60,6 +60,12 @@ struct Ball
                         // in one value: velocity.x < 0 means moving left.
 };
 
+enum GameState {
+    PLAYING,
+    PLAYER_ONE_WINS,
+    PLAYER_TWO_WINS
+};
+
 // ---------------------------------------------------------------------------
 // 3. State
 // ---------------------------------------------------------------------------
@@ -71,7 +77,7 @@ Paddle leftPaddle;
 Paddle rightPaddle;
 Ball   ball;
 Color white = { 255, 255, 255, 255 };
-// bool   gameOver = false;
+GameState state;
 
 // ---------------------------------------------------------------------------
 // 4. Helper functions
@@ -92,12 +98,14 @@ void ResetBall(int directionX) {
     // Vector2{ float x, float y } and ball.position.x = x work too
     
     ball.velocity.x = BALL_SPEED * directionX;
-    ball.velocity.y = GetRandomValue(-100, 100);
+    ball.velocity.y = GetRandomValue(-200, 200);
 }
 
 // Set up both paddles and serve the first ball. Called once before the loop,
 // and again when the players restart after a win.
 void InitGame() {
+
+    state = PLAYING;
 
     leftPaddle = {
         { // rect
@@ -139,7 +147,7 @@ void UpdatePaddle(Paddle& paddle, float dt)
     if (IsKeyDown(paddle.upKey)) paddle.rect.y -= PADDLE_SPEED * dt;
     if (IsKeyDown(paddle.downKey)) paddle.rect.y += PADDLE_SPEED * dt;
 
-    if (paddle.rect.y > SCREEN_HEIGHT) paddle.rect.y = SCREEN_HEIGHT;
+    if (paddle.rect.y > SCREEN_HEIGHT - PADDLE_HEIGHT) paddle.rect.y = SCREEN_HEIGHT - PADDLE_HEIGHT;
     if (paddle.rect.y < 0) paddle.rect.y = 0;
 }
 
@@ -167,58 +175,53 @@ void UpdateBall(float dt)
 {
     ball.position.x += ball.velocity.x * dt;
     ball.position.y += ball.velocity.y * dt;
-    if (ball.position.y <= 0) {
+    if (ball.position.y + BALL_RADIUS <= 0) {
         ball.velocity.y *= -1;
         ball.position.y += CLAMP_MARGIN;
     }
-    else if (ball.position.y >= SCREEN_HEIGHT) {
+    else if (ball.position.y + BALL_RADIUS >= SCREEN_HEIGHT) {
         ball.velocity.y *= -1;
         ball.position.y -= CLAMP_MARGIN;
     }
 
     // Paddle Collision (AABB)
-    if  (
-            ball.position.x - BALL_RADIUS >= PADDLE_MARGIN
-            && ball.position.x - BALL_RADIUS <= PADDLE_MARGIN + PADDLE_WIDTH
-            && ball.position.y >= leftPaddle.rect.y
-            && ball.position.y <= leftPaddle.rect.y + PADDLE_HEIGHT
-        ) 
-    {
-        ball.velocity.x *= -1;
+    if  (CheckCollisionCircleRec(ball.position, BALL_RADIUS, leftPaddle.rect)) { // Left Paddle   
+        ball.velocity.x *= -1.10f;
         ball.position.x += CLAMP_MARGIN;
     }
-    else if (
-            ball.position.x + BALL_RADIUS >= SCREEN_WIDTH - PADDLE_MARGIN
-            && ball.position.x + BALL_RADIUS <= SCREEN_WIDTH - PADDLE_MARGIN - PADDLE_WIDTH
-            && ball.position.y >= rightPaddle.rect.y
-            && ball.position.y <= rightPaddle.rect.y + PADDLE_HEIGHT
-        )
-    {
-        ball.velocity.x *= -1;
+    else if (CheckCollisionCircleRec(ball.position, BALL_RADIUS, rightPaddle.rect)) { // Right Paddle 
+        ball.velocity.x *= -1.10f;
         ball.position.x -= CLAMP_MARGIN;
-    }
+    } 
 
+    /*ball.position.x - BALL_RADIUS >= PADDLE_MARGIN
+    && ball.position.x - BALL_RADIUS <= PADDLE_MARGIN + PADDLE_WIDTH
+    && ball.position.y >= leftPaddle.rect.y
+    && ball.position.y <= leftPaddle.rect.y + PADDLE_HEIGHT*/
+
+    /*ball.position.x + BALL_RADIUS <= SCREEN_WIDTH - PADDLE_MARGIN
+    && ball.position.x + BALL_RADIUS >= SCREEN_WIDTH - PADDLE_MARGIN - PADDLE_WIDTH
+    && ball.position.y >= rightPaddle.rect.y
+    && ball.position.y <= rightPaddle.rect.y + PADDLE_HEIGHT */
+
+    
     // scoring
     if (ball.position.x + BALL_RADIUS <= 0) {
         rightPaddle.score++;
-        ResetBall(1);
-    } else if (ball.position.x - BALL_RADIUS <= 0) {
+        if (rightPaddle.score >= WINNING_SCORE && rightPaddle.score >= leftPaddle.score + 2) state = PLAYER_TWO_WINS;
+        else ResetBall(1);
+    } else if (ball.position.x - BALL_RADIUS >= SCREEN_WIDTH) {
         leftPaddle.score++;
-        ResetBall(-1);
+        if (leftPaddle.score >= WINNING_SCORE && leftPaddle.score >= rightPaddle.score + 2) state = PLAYER_ONE_WINS;
+        else ResetBall(-1);
     }
-
 }
 
 // Draw the court: centre line, both scores, and the help text.
 // Drawing is separate from updating on purpose - update decides what's true,
 // draw just reports it. Keep the two from bleeding into each other.
 void DrawCourt()
-{
-    Color darkGrey = { 50, 50, 50, 255 };
-
-    // Background
-    DrawRectangle(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, darkGrey);
-    
+{    
     // Dashed Centreline
     for (int y = 0; y < SCREEN_HEIGHT; y += 50) {
         DrawRectangle(SCREEN_WIDTH / 2 - 5, y, 10, 50, white);
@@ -226,22 +229,22 @@ void DrawCourt()
     }
 
     //Left Player Score
-    DrawRectangleLinesEx({ 0, 0, 100, 40 }, 2, white);
-    DrawText(TextFormat("%d", leftPaddle.score), 20, 20, 20, white);
+    DrawRectangleLinesEx({ 0, 0, 150, 60 }, 2, white);
+    DrawText(TextFormat("%d", leftPaddle.score), 80, 20, 20, white);
 
     //Right Player Score
-    DrawRectangleLinesEx({ SCREEN_WIDTH - 100, 0, 100, 40 }, 2, white);
+    DrawRectangleLinesEx({ SCREEN_WIDTH - 150, 0, 150, 60 }, 2, white);
     DrawText(TextFormat("%d", rightPaddle.score), SCREEN_WIDTH - 80, 20, 20, white);
 
     // Gameover
-    if (leftPaddle.score >= 11 && leftPaddle.score >= rightPaddle.score + 2) {
+    if (state == PLAYER_ONE_WINS) {
         DrawRectangle(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, { 50, 50, 50, 100 });
-        DrawRectangleLinesEx({ SCREEN_WIDTH / 2 - 100, SCREEN_HEIGHT / 2 - 50, 200, 100 }, 4, white);
-        DrawText(TextFormat("Player One Wins! - Press Space"), SCREEN_WIDTH / 2 - 60, SCREEN_HEIGHT / 2 - 15, 30, white);
-    } else if (rightPaddle.score >= 11 && rightPaddle.score >= leftPaddle.score + 2) {
+        DrawRectangleLinesEx({ SCREEN_WIDTH / 2 - 300, SCREEN_HEIGHT / 2 - 75, 600, 150 }, 4, white);
+        DrawText(TextFormat("Player One Wins! - Press Space"), SCREEN_WIDTH / 2 - 250, SCREEN_HEIGHT / 2 - 15, 30, white);
+    } else if (state == PLAYER_TWO_WINS) {
         DrawRectangle(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, { 50, 50, 50, 100 });
-        DrawRectangleLinesEx({ SCREEN_WIDTH / 2 - 100, SCREEN_HEIGHT / 2 - 50, 200, 100 }, 4, white);
-        DrawText(TextFormat("Player Two Wins! - Press Space"), SCREEN_WIDTH / 2 - 60, SCREEN_HEIGHT / 2 - 15, 30, white);
+        DrawRectangleLinesEx({ SCREEN_WIDTH / 2 - 300, SCREEN_HEIGHT / 2 - 75, 600, 150 }, 4, white);
+        DrawText(TextFormat("Player Two Wins! - Press Space"), SCREEN_WIDTH / 2 - 250, SCREEN_HEIGHT / 2 - 15, 30, white);
     }
 
 }
@@ -265,21 +268,28 @@ void DrawCourt()
 void UpdateDrawFrame()
 {
     float dt = GetFrameTime();
-    while (leftPaddle.score >= 11 && leftPaddle.score >= rightPaddle.score + 2 ||
-        rightPaddle.score >= 11 && rightPaddle.score >= leftPaddle.score + 2) {
-        if (IsKeyPressed(KEY_SPACE)) {
-            InitGame();
-        }
+    if (state == PLAYING) {
+
+        UpdatePaddle(leftPaddle, dt);
+        UpdatePaddle(rightPaddle, dt);
+        UpdateBall(dt);
+    }
+    else {
+        if (IsKeyPressed(KEY_SPACE)) InitGame();
     }
 
-    UpdatePaddle(leftPaddle, dt);
-    UpdatePaddle(rightPaddle, dt);
-    UpdateBall(dt);
+    BeginDrawing();
 
+    // Background
+    DrawRectangle(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, { 50, 50, 50, 255 });
     DrawCourt();
     DrawRectangle(leftPaddle.rect.x, leftPaddle.rect.y, leftPaddle.rect.width, leftPaddle.rect.height, white);
     DrawRectangle(rightPaddle.rect.x, rightPaddle.rect.y, rightPaddle.rect.width, rightPaddle.rect.height, white);
     DrawCircle(ball.position.x, ball.position.y, BALL_RADIUS, white);
+    
+
+    EndDrawing(); // always redraw even with no updtaes as this is what 
+    // actually does a frame. Without it it cannot poll for input (spacebar)
 }
 
 // ---------------------------------------------------------------------------
