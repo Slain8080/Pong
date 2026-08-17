@@ -1,4 +1,4 @@
-# greyproject1
+# Grey And Lucas Project 1 (PONG)
 
 A game written in C++ with [raylib](https://www.raylib.com/).
 
