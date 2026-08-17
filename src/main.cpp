@@ -138,8 +138,6 @@ void InitGame() {
 }
 
 // Move one paddle according to its own keys, then stop it leaving the screen.
-// Works for BOTH paddles because the keys are stored in the struct - this is
-// why Paddle has upKey/downKey fields instead of hard-coded input.
 void UpdatePaddle(Paddle& paddle, float dt)
 {
     if (IsKeyDown(paddle.upKey)) paddle.rect.y -= PADDLE_SPEED * dt;
@@ -150,23 +148,7 @@ void UpdatePaddle(Paddle& paddle, float dt)
 }
 
 // Move the ball and handle everything it can hit.
-//
-// TODO, roughly in this order:
-//   - move position by velocity * dt
-//   - bounce off the top and bottom walls: if the ball has gone past an edge,
-//     flip velocity.y. (Nudge it back inside the wall too, or a ball that
-//     lands exactly on the edge can flip every frame and jitter.)
-//   - bounce off paddles. CheckCollisionCircleRec(centre, radius, rect)
-//     returns true when a circle overlaps a rectangle. On a hit, flip
-//     velocity.x.
-//     Guard against re-hitting: only flip if the ball is actually moving
-//     TOWARD that paddle, otherwise it can get stuck vibrating inside one.
-//   - if the ball has left the screen past a paddle, that's a point for the
-//     other player: increment their score, then ResetBall toward the loser.
-//   - if someone reached WINNING_SCORE, set gameOver
-//
-// Do the simple version first - a flat bounce that just flips velocity.x is a
-// complete, playable game. Making the bounce angle depend on WHERE the ball
+// Making the bounce angle depend on WHERE the ball
 // hit the paddle is the single best upgrade afterwards, but get it working
 // first.
 void UpdateBall(float dt)
@@ -182,7 +164,7 @@ void UpdateBall(float dt)
         ball.position.y = SCREEN_HEIGHT - BALL_RADIUS;
     }
 
-    // Paddle Collision (AABB)
+    // Paddle Collision
     if  (CheckCollisionCircleRec(ball.position, BALL_RADIUS, leftPaddle.rect)) { // Left Paddle   
         ball.velocity.x *= -1.10f;
         ball.position.x = leftPaddle.rect.width + PADDLE_MARGIN + BALL_RADIUS;
@@ -191,16 +173,6 @@ void UpdateBall(float dt)
         ball.velocity.x *= -1.10f;
         ball.position.x = SCREEN_WIDTH - rightPaddle.rect.width - PADDLE_MARGIN - BALL_RADIUS;
     } 
-
-    /*ball.position.x - BALL_RADIUS >= PADDLE_MARGIN
-    && ball.position.x - BALL_RADIUS <= PADDLE_MARGIN + PADDLE_WIDTH
-    && ball.position.y >= leftPaddle.rect.y
-    && ball.position.y <= leftPaddle.rect.y + PADDLE_HEIGHT*/
-
-    /*ball.position.x + BALL_RADIUS <= SCREEN_WIDTH - PADDLE_MARGIN
-    && ball.position.x + BALL_RADIUS >= SCREEN_WIDTH - PADDLE_MARGIN - PADDLE_WIDTH
-    && ball.position.y >= rightPaddle.rect.y
-    && ball.position.y <= rightPaddle.rect.y + PADDLE_HEIGHT */
 
     
     // scoring
@@ -238,11 +210,11 @@ void DrawCourt()
     if (state == PLAYER_ONE_WINS) {
         DrawRectangleRec({ 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT }, { 50, 50, 50, 100 });
         DrawRectangleLinesEx({ SCREEN_WIDTH / 2 - 300, SCREEN_HEIGHT / 2 - 75, 600, 150 }, 4, white);
-        DrawText(TextFormat("Player One Wins! - Press Space"), SCREEN_WIDTH / 2 - 250, SCREEN_HEIGHT / 2 - 15, 30, white);
+        DrawText("Player One Wins! - Press Space", SCREEN_WIDTH / 2 - 250, SCREEN_HEIGHT / 2 - 15, 30, white);
     } else if (state == PLAYER_TWO_WINS) {
         DrawRectangleRec({ 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT }, { 50, 50, 50, 100 });
         DrawRectangleLinesEx({ SCREEN_WIDTH / 2 - 300, SCREEN_HEIGHT / 2 - 75, 600, 150 }, 4, white);
-        DrawText(TextFormat("Player Two Wins! - Press Space"), SCREEN_WIDTH / 2 - 250, SCREEN_HEIGHT / 2 - 15, 30, white);
+        DrawText("Player Two Wins!- Press Space", SCREEN_WIDTH / 2 - 250, SCREEN_HEIGHT / 2 - 15, 30, white);
     }
 
 }
@@ -251,18 +223,6 @@ void DrawCourt()
 // 5. One frame
 // ---------------------------------------------------------------------------
 // Input -> update -> draw. Everything that happens in 1/60th of a second.
-//
-// TODO:
-//   - float dt = GetFrameTime();
-//   - if gameOver: wait for IsKeyPressed(KEY_SPACE) to InitGame(), and skip
-//     the movement updates so the final position stays frozen on screen
-//   - otherwise: UpdatePaddle for each paddle, then UpdateBall
-//   - then BeginDrawing / ClearBackground / DrawCourt / paddles / ball /
-//     EndDrawing
-//
-// Useful raylib draw calls:
-//   DrawRectangleRec(rect, colour)
-//   DrawCircleV(position, radius, colour)
 void UpdateDrawFrame()
 {
     float dt = GetFrameTime();
