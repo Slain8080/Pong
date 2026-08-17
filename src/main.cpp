@@ -27,8 +27,6 @@
 constexpr int   SCREEN_WIDTH   = 960;
 constexpr int   SCREEN_HEIGHT  = 540;
 
-constexpr int   CLAMP_MARGIN   = 3;
-
 constexpr float PADDLE_WIDTH   = 16.0f;
 constexpr float PADDLE_HEIGHT  = 100.0f;
 constexpr float PADDLE_SPEED   = 400.0f;   // pixels per second
@@ -175,23 +173,23 @@ void UpdateBall(float dt)
 {
     ball.position.x += ball.velocity.x * dt;
     ball.position.y += ball.velocity.y * dt;
-    if (ball.position.y + BALL_RADIUS <= 0) {
+    if (ball.position.y - BALL_RADIUS < 0) {
         ball.velocity.y *= -1;
-        ball.position.y += CLAMP_MARGIN;
+        ball.position.y = 0 + BALL_RADIUS;
     }
-    else if (ball.position.y + BALL_RADIUS >= SCREEN_HEIGHT) {
+    else if (ball.position.y + BALL_RADIUS > SCREEN_HEIGHT) {
         ball.velocity.y *= -1;
-        ball.position.y -= CLAMP_MARGIN;
+        ball.position.y = SCREEN_HEIGHT - BALL_RADIUS;
     }
 
     // Paddle Collision (AABB)
     if  (CheckCollisionCircleRec(ball.position, BALL_RADIUS, leftPaddle.rect)) { // Left Paddle   
         ball.velocity.x *= -1.10f;
-        ball.position.x += CLAMP_MARGIN;
+        ball.position.x = leftPaddle.rect.width + PADDLE_MARGIN + BALL_RADIUS;
     }
     else if (CheckCollisionCircleRec(ball.position, BALL_RADIUS, rightPaddle.rect)) { // Right Paddle 
         ball.velocity.x *= -1.10f;
-        ball.position.x -= CLAMP_MARGIN;
+        ball.position.x = SCREEN_WIDTH - rightPaddle.rect.width - PADDLE_MARGIN - BALL_RADIUS;
     } 
 
     /*ball.position.x - BALL_RADIUS >= PADDLE_MARGIN
@@ -209,11 +207,11 @@ void UpdateBall(float dt)
     if (ball.position.x + BALL_RADIUS <= 0) {
         rightPaddle.score++;
         if (rightPaddle.score >= WINNING_SCORE && rightPaddle.score >= leftPaddle.score + 2) state = PLAYER_TWO_WINS;
-        else ResetBall(1);
+        else ResetBall(-1);
     } else if (ball.position.x - BALL_RADIUS >= SCREEN_WIDTH) {
         leftPaddle.score++;
         if (leftPaddle.score >= WINNING_SCORE && leftPaddle.score >= rightPaddle.score + 2) state = PLAYER_ONE_WINS;
-        else ResetBall(-1);
+        else ResetBall(1);
     }
 }
 
@@ -223,8 +221,8 @@ void UpdateBall(float dt)
 void DrawCourt()
 {    
     // Dashed Centreline
-    for (int y = 0; y < SCREEN_HEIGHT; y += 50) {
-        DrawRectangle(SCREEN_WIDTH / 2 - 5, y, 10, 50, white);
+    for (float y = 0.0f; y < SCREEN_HEIGHT; y += 50.0f) {
+        DrawRectangleRec({ SCREEN_WIDTH / 2 - 5, y, 10, 50 }, white);
         y += 10;
     }
 
@@ -238,11 +236,11 @@ void DrawCourt()
 
     // Gameover
     if (state == PLAYER_ONE_WINS) {
-        DrawRectangle(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, { 50, 50, 50, 100 });
+        DrawRectangleRec({ 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT }, { 50, 50, 50, 100 });
         DrawRectangleLinesEx({ SCREEN_WIDTH / 2 - 300, SCREEN_HEIGHT / 2 - 75, 600, 150 }, 4, white);
         DrawText(TextFormat("Player One Wins! - Press Space"), SCREEN_WIDTH / 2 - 250, SCREEN_HEIGHT / 2 - 15, 30, white);
     } else if (state == PLAYER_TWO_WINS) {
-        DrawRectangle(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, { 50, 50, 50, 100 });
+        DrawRectangleRec({ 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT }, { 50, 50, 50, 100 });
         DrawRectangleLinesEx({ SCREEN_WIDTH / 2 - 300, SCREEN_HEIGHT / 2 - 75, 600, 150 }, 4, white);
         DrawText(TextFormat("Player Two Wins! - Press Space"), SCREEN_WIDTH / 2 - 250, SCREEN_HEIGHT / 2 - 15, 30, white);
     }
@@ -279,13 +277,12 @@ void UpdateDrawFrame()
     }
 
     BeginDrawing();
+    ClearBackground({ 50, 50, 50, 255 }); // also draws the BG
 
-    // Background
-    DrawRectangle(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, { 50, 50, 50, 255 });
     DrawCourt();
-    DrawRectangle(leftPaddle.rect.x, leftPaddle.rect.y, leftPaddle.rect.width, leftPaddle.rect.height, white);
-    DrawRectangle(rightPaddle.rect.x, rightPaddle.rect.y, rightPaddle.rect.width, rightPaddle.rect.height, white);
-    DrawCircle(ball.position.x, ball.position.y, BALL_RADIUS, white);
+    DrawRectangleRec(leftPaddle.rect, white);
+    DrawRectangleRec(rightPaddle.rect, white);
+    DrawCircleV(ball.position, BALL_RADIUS, white);
     
 
     EndDrawing(); // always redraw even with no updtaes as this is what 
