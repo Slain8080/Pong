@@ -1,0 +1,85 @@
+# Builds the web version and publishes it to GitHub Pages.
+#
+# This is "CI" - continuous integration. GitHub gives you a fresh Linux machine
+# on every push, runs these steps on it, and throws it away. Nothing here runs
+# on your PC, and nothing built here is ever committed to the repo.
+#
+# The payoff: the live site is rebuilt from source every time you push, so it
+# cannot silently drift out of date the way a hand-copied build would.
+
+name: Deploy web build
+
+on:
+  # Rebuild whenever main changes.
+  push:
+    branches: [main]
+  # Also allow running it by hand from the Actions tab, which is invaluable
+  # when you're debugging the workflow itself.
+  workflow_dispatch:
+
+# Permissions this workflow is granted. GitHub defaults to the minimum and
+# makes you ask, so a compromised step can't do more than the job requires.
+permissions:
+  contents: read      # to check out the source
+  pages: write        # to publish the site
+  id-token: write     # to prove to Pages that this deploy came from this workflow
+
+# If you push twice quickly, cancel the older run. Without this, two deploys
+# race and whichever finishes last wins - not necessarily the newer commit.
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the source
+        uses: actions/checkout@v4
+
+      # The exact steps you ran on Windows. A fresh machine has no Emscripten,
+      # so it gets installed from scratch every run (about a minute).
+      # Note there's no Ninja here: on Linux, CMake's default generator is
+      # Unix Makefiles, which emcmake is perfectly happy with. The Ninja
+      # detour was purely a Windows problem.
+      - name: Install Emscripten
+        run: |
+          git clone --depth 1 https://github.com/emscripten-core/emsdk.git
+          ./emsdk/emsdk install latest
+          ./emsdk/emsdk activate latest
+
+      - name: Configure and build
+        run: |
+          source ./emsdk/emsdk_env.sh
+          emcmake cmake -B build-web -S . -DCMAKE_BUILD_TYPE=Release
+          cmake --build build-web
+
+      # Pages serves "index.html" automatically when someone visits the bare
+      # URL. Renaming game.html means visitors get the game at
+      # slain8080.github.io/Pong/ instead of having to know to add /game.html.
+      #
+      # Only the .html is renamed. The page loads "game.js" by that exact name
+      # from inside its own markup, so renaming the .js would break it.
+      - name: Assemble the site
+        run: |
+          mkdir -p site
+          cp build-web/game.js build-web/game.wasm site/
+          cp build-web/game.html site/index.html
+
+      - name: Upload the site
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+  # Deploying is a separate job on purpose: it only runs if the build job
+  # succeeded, so a broken build can never replace a working live site.
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Publish to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
