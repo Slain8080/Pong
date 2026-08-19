@@ -16,6 +16,9 @@
 // to be tidier.
 
 #include "raylib.h"
+#if defined(__EMSCRIPTEN__) 
+    #include <emscripten/emscripten.h>
+#endif
 
 // ---------------------------------------------------------------------------
 // 1. Constants
@@ -253,12 +256,27 @@ void UpdateDrawFrame()
 // 6. Entry point
 // ---------------------------------------------------------------------------
 
-int main()
-{
+int main() {
     InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Pong");
-    SetTargetFPS(60);
-
     InitGame();
+
+#if defined(__EMSCRIPTEN__)
+    // TODO: hand UpdateDrawFrame to the browser, then fall through and return.
+    emscripten_set_main_loop(UpdateDrawFrame, 0, 1);
+    //
+    //   arg 1: the function to run each frame. Pass it by NAME, with no
+    //          parentheses - you're passing the function ITSELF, not calling it
+    //          and passing its result. (This is a function pointer. Closest
+    //          thing you've seen is a Java method reference.)
+    //   arg 2: target fps. Pass 0 to let the browser drive, syncing to the
+    //          monitor's refresh rate. That's what you want here.
+    //   arg 3: pass 1.
+    //
+    // Deliberately no SetTargetFPS on this path - two things throttling the
+    // frame rate fight each other. Let the browser own the timing.
+    // Deliberately no CloseWindow either: the page closing IS the shutdown.
+#else
+    SetTargetFPS(60);
 
     while (!WindowShouldClose())
     {
@@ -266,5 +284,6 @@ int main()
     }
 
     CloseWindow();
+#endif
     return 0;
 }

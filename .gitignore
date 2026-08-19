@@ -4,6 +4,10 @@
 build/
 out/
 
+# The web build gets its own directory so it never collides with the
+# desktop one - different compiler, different everything.
+build-web/
+
 # Visual Studio
 .vs/
 *.user

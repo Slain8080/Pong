@@ -50,3 +50,40 @@ if(MSVC)
     set_property(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT game)
     set_property(TARGET game PROPERTY VS_DEBUGGER_WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}")
 endif()
+
+# ---------------------------------------------------------------------------
+# Web build (Emscripten)
+# ---------------------------------------------------------------------------
+# Emscripten is a compiler that targets the browser instead of Windows/macOS.
+# It turns C++ into WebAssembly (.wasm) plus a bit of JavaScript glue (.js).
+#
+# You never set this block off by hand. It activates only when you configure
+# the build through `emcmake`, which quietly points CMake at Emscripten's
+# compiler and defines EMSCRIPTEN for us. Desktop builds skip it entirely, so
+# adding this changes nothing about how you build today.
+#
+# raylib handles its own half: it sees Emscripten, switches PLATFORM to Web on
+# its own, and passes us the browser-specific flags it needs (-sUSE_GLFW=3)
+# through target_link_libraries. So all that's left is our half.
+if(EMSCRIPTEN)
+    # Normally the linker emits an executable. Here we ask for ".html", which
+    # makes Emscripten ALSO write a small page that loads the .js and .wasm and
+    # gives them a canvas to draw on. Without this you'd get the pieces of a
+    # web game but no page to run them in.
+    set(CMAKE_EXECUTABLE_SUFFIX ".html")
+
+    target_link_options(game PRIVATE
+        # A web build asks the browser for its memory up front. Rather than
+        # guessing a fixed amount, let it grow on demand.
+        -sALLOW_MEMORY_GROWTH=1
+
+        # Emscripten's default stack is small (64 KB). Games routinely want
+        # more, and overflowing it fails in confusing ways. Cheap insurance.
+        -sSTACK_SIZE=1mb
+    )
+
+    # When the game gains assets (sprites, sounds), they must be bundled INTO
+    # the build - a browser can't read your hard drive. That's one more line:
+    #     --preload-file "${CMAKE_CURRENT_SOURCE_DIR}/assets@assets"
+    # Not needed yet, since Pong draws everything with shapes.
+endif()
